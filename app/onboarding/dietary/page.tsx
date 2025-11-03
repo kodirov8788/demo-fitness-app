@@ -1,0 +1,71 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { getDbInstance } from '@/lib/firebase';
+
+function ensureFirebase() {
+  if (typeof window === 'undefined') {
+    throw new Error('Firebase should only be used on the client side.');
+  }
+  const dbInstance = getDbInstance();
+  if (!dbInstance) {
+    throw new Error('Firebase is not initialized.');
+  }
+  return { db: dbInstance };
+}
+
+export default function OnboardingDietaryPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      const { db: dbInstance } = ensureFirebase();
+      const userRef = doc(dbInstance, 'users', user.uid);
+
+      await updateDoc(userRef, {
+        'assessments.dietary': {
+          completed: true,
+          updatedAt: Timestamp.now(),
+        },
+      });
+
+      router.push('/onboarding/mental-health');
+    } catch (err: any) {
+      console.error('Error saving dietary:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center">Dietary Assessment</CardTitle>
+          <CardDescription className="text-center">Step 7 of 9</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-muted-foreground">This step will be implemented in detail later.</p>
+          <div className="flex justify-end space-x-4 pt-4">
+            <Button variant="outline" onClick={() => router.back()} disabled={loading}>
+              Back
+            </Button>
+            <Button onClick={handleSubmit} disabled={loading}>
+              {loading ? 'Saving...' : 'Next Step'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
